@@ -143,7 +143,8 @@ class Experiment:
 
         self.save_data_hdf5()
         
-
+        
+    # decorator for methods that execute an experiment
     def experiment_method(method: Callable[..., Any]) -> Callable[..., Any]:
         @functools.wraps(method)
         def wrapper(self: Experiment, *args, **kwargs):
@@ -172,18 +173,34 @@ class Experiment:
         return wrapper
     
 
+    # decorator for safe initialization of instruments
+    @staticmethod
+    def safe_initializer(func):
+        @functools.wraps(func)
+        def wrapper(self, *args, **kwargs):
+            try:
+                return func(self, *args, **kwargs)
+            except Exception as e:
+                print(f"[Warning] {func.__name__} failed: {e}")
+                return None
+        return wrapper
+    
+
 
     # Instrument methods
     def initialize_instruments(self):
         """ Initialize the instruments based on the provided configurations. """
         raise NotImplementedError
     
+    @safe_initializer
     def initialize_vna(self, adress = "TCPIP0::192.168.0.43::hislip::INSTR"):
         self.vna = znb.Znb(adress) 
         
+    @safe_initializer    
     def initialize_ana(self, adress = "TCPIP0::192.168.0.45"):
         self.ana = anapico.AnaPico(adress)
         
+    @safe_initializer    
     def initialize_yoko(self, adress = "GPIB1::1::INSTR"):
         self.yoko = yoko7651.Yoko7651(adress)
 

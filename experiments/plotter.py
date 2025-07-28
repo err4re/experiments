@@ -89,6 +89,50 @@ class Plotter:
             display(self.twotone_fig)
 
 
+    def update_twotone_imshow_power(self, f1_center_frequencies, f2_center_frequencies, f2_span, powers, signal, scale=None):
+        if self.twotone_fig is None:
+
+            self.twotone_fig, self.twotone_axes = plt.subplots(1,3)
+            self.twotone_fig.set_figwidth(20)
+
+            self.twotone_axes[0].plot(powers, f2_center_frequencies)
+            self.twotone_axes[2].plot(powers, f1_center_frequencies)
+           
+
+            self.twotone_im = self.twotone_axes[1].imshow(np.flip(signal.T, axis=0), cmap='viridis', aspect='auto',
+                                                          extent=[powers[0], powers[-1], f2_center_frequencies[0] - f2_span/2, f2_center_frequencies[0] + f2_span/2],
+                                                          interpolation='none')
+            self.twotone_axes[1].set_xlabel('second tone power (dBm)')
+            self.twotone_axes[1].set_ylabel('f2 (GHz)')
+
+            #self.twotone_im.set_clim(vmin=scale, vmax=-scale)
+
+            clear_output(wait=True)
+            #plt.tight_layout()
+            display(self.twotone_fig)
+
+        else:
+
+            self.twotone_axes[0].clear()
+            self.twotone_axes[2].clear()
+            self.twotone_axes[0].plot(powers, f2_center_frequencies)
+            self.twotone_axes[0].set_xlabel('second tone power (dBm)')
+            self.twotone_axes[0].set_ylabel('f2 center (GHz)')
+            self.twotone_axes[2].plot(powers, f1_center_frequencies)
+            self.twotone_axes[2].set_xlabel('second tone power (dBm)')
+            self.twotone_axes[2].set_ylabel('f1 center (GHz)')
+
+            self.twotone_im.set_data(np.flip(signal.T, axis=0))
+            self.twotone_im.set_clim(vmin=np.nanmin(signal), vmax=np.nanmax(signal))
+
+            #self.twotone_axes[1].relim()
+            #self.twotone_axes[1].autoscale_view()
+
+            clear_output(wait=True)
+            #plt.tight_layout()
+            display(self.twotone_fig)
+
+
 
 
     def update_imshow(self, new_x: np.ndarray, new_y: np.ndarray, new_z: np.ndarray):
@@ -150,17 +194,113 @@ class Plotter:
             #plt.tight_layout()
             display(self.imshow_fig)
 
+    @staticmethod
+    def plot_two_tone(data: TwoToneData, title: str = 'Two Tone', cmap: str = 'viridis', comment: bool=True) -> Tuple[Figure, Axes]:
+        ### plot results for two tone measurement
 
-    def plot_flux_map(self, data: FluxMapData, title: str = 'Flux Map' , cmap: str = 'viridis', comment: bool=True) -> Tuple[Figure, Axes]:
+        fig: Figure
+        axes: Axes
+        fig, axes = plt.subplots(1, 3)
+
+        fig.set_figwidth(20)
+
+        axes[0].plot(data.voltages/1e-3, data.f2_center_frequencies/1e9)
+        axes[2].plot(data.voltages/1e-3, data.f1_center_frequencies/1e9)
+
+        f2_span = abs(data.f2_frequencies[0][-1]/1e9 - data.f2_frequencies[0][0]/1e9)
+
+        axes[1].imshow(np.flip(data.signal.T, axis=0), cmap='viridis', aspect='auto',
+                                extent=[data.voltages[0]/1e-3, data.voltages[-1]/1e-3, data.f2_center_frequencies[0]/1e9 - f2_span/2, data.f2_center_frequencies[0]/1e9 + f2_span/2],
+                                interpolation='none')
+        
+        
+        axes[0].set_xlabel('voltage (mV)')
+        axes[1].set_xlabel('voltage (mV)')
+        axes[2].set_xlabel('voltage (mV)')
+        axes[0].set_ylabel('f2 center (GHz)')
+        axes[1].set_ylabel('f2 (GHz)')
+        axes[2].set_ylabel('f1 center (GHz)')
+
+        axes[1].set_title(title)
+
+        fig.tight_layout()
+
+        # Generate comments and add as a text box
+        comments = Plotter.generate_two_tone_comments(data)
+        
+        ax_box = axes[0].get_position()
+
+        position = ((ax_box.xmin + ax_box.xmax)/2, (ax_box.ymin + ax_box.ymax)/2)
+
+        if comment:
+            #Plotter.add_text_box(axes[1], comments, position, fontsize=12)
+            axes[0].text(0.5, 0.5, comments, horizontalalignment='center', verticalalignment='center', transform=axes[0].transAxes)
+
+
+        return fig, axes
+
+
+
+
+
+
+    @staticmethod
+    def generate_two_tone_comments(data: TwoToneData) -> str:
+           
+            voltages = data.voltages/1e-3 #in mA
+            frequencies = data.f/1e9 #in GHz
+
+            voltages_initial = round_to_significant_digits(voltages[0], 5)
+            voltages_final = round_to_significant_digits(voltages[-1], 5)
+
+            # Ascending voltages
+            if data.voltages[0] < data.voltages[-1]:
+                voltage_sweep_dir = 'right'
+            # Descending voltages
+            else:
+                voltage_sweep_dir = 'left'
+
+            comment = (
+                f"f1 (VNA) power: {data.vna_meta['power']} dBm\n"
+                f"VNA sweep type: {data.vna_meta['sweep_type']}\n"
+                f"VNA vbw: {data.vna_meta['VBW']} Hz\n"
+                f"VNA average: {data.vna_meta['average']}\n"
+                f"f2 (Anapico) power: {data.f2_powers[0]} dBm\n"
+                f"f2 frequency span: {abs(data.f2_frequencies[0][-1] - data.f2_frequencies[0][0])/1e9} GHz\n"
+                f"f2 requency step: {(data.f2_frequencies[0][1] - data.f2_frequencies[0][0])/1e6} MHz\n"
+                f"Voltage sweep direction: {voltage_sweep_dir}\n"
+                f"Voltage range: {voltages_initial} to {voltages_final} mV\n"
+                f"Voltage step: {np.round(voltages[1] - voltages[0],4)} mV\n"
+                f"Max signal: {data.signal.max():.5f} \n"  
+            )
+
+            if hasattr(data, "ana_meta") and data.ana_meta:
+                ana = data.ana_meta
+                for ch_name, ch_meta in ana.get("Channels", {}).items():
+                    if ch_meta.get("Output Enabled"):
+                        comment += f"\n\nAnaPico {ch_name}: ON"
+                        comment += f"\nPower: {ch_meta.get('Power (dBm)')} dBm"
+                        comment += f"\nFrequency: {ch_meta.get('Frequency (Hz)')} Hz"
+                        comment += f"\nFrequency Mode: {ch_meta.get('Frequency Mode')}"
+
+
+            return comment
+
+
+
+
+
+    @staticmethod
+    def plot_flux_map(data: FluxMapData, title: str = 'Flux Map' , cmap: str = 'viridis', comment: bool=True) -> Tuple[Figure, Axes]:
         ### Would need to be improved for adaptive fluxmaps!
 
         if data.currents is not None:
-            self.plot_flux_map_current(data, title, cmap, comment)
+            return Plotter.plot_flux_map_current(data, title, cmap, comment)
         elif data.voltages is not None:
-            self.plot_flux_map_voltage(data, title, cmap, comment)
+            return Plotter.plot_flux_map_voltage(data, title, cmap, comment)
 
-    
-    def plot_flux_map_current(self, data: FluxMapData, title: str = 'Flux Map' , cmap: str = 'viridis', comment: bool=True) -> Tuple[Figure, Axes]:
+    @staticmethod
+    def plot_flux_map_current(data: FluxMapData, title: str = 'Flux Map' , cmap: str = 'viridis', comment: bool=True) -> Tuple[Figure, Axes]:
         # Create the figure and axes object
         fig: Figure
         ax: Axes
@@ -192,7 +332,7 @@ class Plotter:
         cbar.set_label(r'$|\text{S}_{21}|$ (dB)')
 
         # Generate comments and add as a text box
-        comments = self.generate_flux_map_comments_current(data)
+        comments = Plotter.generate_flux_map_comments_current(data)
 
         cbar_box = cbar.ax.get_position()
         ax_box = ax.get_position()
@@ -203,11 +343,14 @@ class Plotter:
 
         return fig, ax
 
-    def plot_flux_map_fluxes(self, data: FluxMapData, title: str = 'Flux Map' , cmap: str = 'viridis', comment: bool=True) -> Tuple[Figure, Axes]:
+    @staticmethod
+    def plot_flux_map_fluxes(data: FluxMapData, title: str = 'Flux Map' , cmap: str = 'viridis', comment: bool=True, fig: Optional[Figure]=None, ax: Optional[Axes]=None) -> Tuple[Figure, Axes]:
         # Create the figure and axes object
-        fig: Figure
-        ax: Axes
-        fig, ax = plt.subplots()
+        
+        if fig is None and ax is None:
+            fig: Figure
+            ax: Axes
+            fig, ax = plt.subplots()
 
         fluxes = data.fluxes #in mA
         frequencies = data.f/1e9 #in GHz
@@ -247,7 +390,8 @@ class Plotter:
 
         return fig, ax
 
-    def plot_flux_map_voltage(self, data: FluxMapData, title: str = 'Flux Map' , cmap: str = 'viridis', comment: bool=True) -> Tuple[Figure, Axes]:
+    @staticmethod
+    def plot_flux_map_voltage(data: FluxMapData, title: str = 'Flux Map' , cmap: str = 'viridis', comment: bool=True) -> Tuple[Figure, Axes]:
         # Create the figure and axes object
         fig: Figure
         ax: Axes
@@ -280,12 +424,12 @@ class Plotter:
         cbar.set_label(r'$|\text{S}_{21}|$ (dB)')
 
         # Generate comments and add as a text box
-        comments = self.generate_flux_map_comments_voltage(data)
+        comments = Plotter.generate_flux_map_comments_voltage(data)
 
         cbar_box = cbar.ax.get_position()
         ax_box = ax.get_position()
         position = (cbar_box.x1 + 0.04, ax_box.y1)
-        
+     
         if comment:
             Plotter.add_text_box(ax, comments, position)
 
@@ -416,6 +560,19 @@ class Plotter:
                 f"Max |S|: {S_to_dBm(data.S).max():.2f} dB\n"
                 f"Min |S|: {S_to_dBm(data.S).min():.2f} dB"   
             )
+
+            if hasattr(data, "ana_meta") and data.ana_meta:
+                ana = data.ana_meta
+                for ch_name, ch_meta in ana.get("Channels", {}).items():
+                    if ch_meta.get("Output Enabled"):
+                        comment += f"\n\nAnaPico {ch_name}: ON"
+                        comment += f"\nPower: {ch_meta.get('Power (dBm)')} dBm"
+                        comment += f"\nFrequency: {ch_meta.get('Frequency (Hz)')} Hz"
+                        comment += f"\nFrequency Mode: {ch_meta.get('Frequency Mode')}"
+
+                # Add more if needed...
+
+
             return comment
     
     @staticmethod
@@ -424,17 +581,15 @@ class Plotter:
             powers = data.powers #in dBm
             frequencies = data.f/1e9 #in GHz
 
-            # Ascending currents
-            if data.powers[0] < data.powers[-1]:
-                power_sweep_dir = 'right'
-            # Descending currents
-            else:
-                power_sweep_dir = 'left'
+            # Ascending powers
+            power_sweep_dir = 'right' if powers[0] < powers[-1] else 'left'
 
-            if is_linearly_spaced(frequencies):
-                frequency_step = f'{np.round((frequencies[1] - frequencies[0])*1e6)} kHz'
-            else:
-                frequency_step = 'non-linear'
+
+            frequency_step = (
+                f'{np.round((frequencies[1] - frequencies[0]) * 1e6)} kHz'
+                if is_linearly_spaced(frequencies)
+                else 'non-linear'
+            )
 
             comment = (
                 f"Parked at current: {data.currents[0]/1e-3} mA\n"
@@ -448,50 +603,34 @@ class Plotter:
                 f"Max |S|: {S_to_dBm(data.S).max():.2f} dB\n"
                 f"Min |S|: {S_to_dBm(data.S).min():.2f} dB"   
             )
+
+
+            if hasattr(data, "ana_meta") and data.ana_meta:
+                ana = data.ana_meta
+                for ch_name, ch_meta in ana.get("Channels", {}).items():
+                    if ch_meta.get("Output Enabled"):
+                        comment += f"\n--- AnaPico {ch_name} Metadata ---"
+                        comment += f"\nPower: {ch_meta.get('Power (dBm)')} dBm"
+                        comment += f"\nFrequency: {ch_meta.get('Frequency (Hz)')} Hz"
+                        comment += f"\nFrequency Mode: {ch_meta.get('Frequency Mode')}"
+                comment += f"\nTrigger Source: {ana.get('Trigger Source')}"
+
+                # Add more if needed...
+
             return comment
     
 
-    @staticmethod
-    def generate_two_tone_comments(data: FluxMapData) -> str:
-           
-            currents = data.currents/1e-3 #in mA
-            frequencies = data.f/1e9 #in GHz
-
-            # Ascending currents
-            if data.currents[0] < data.currents[-1]:
-                current_sweep_dir = 'right'
-            # Descending currents
-            else:
-                current_sweep_dir = 'left'
-
-            if is_linearly_spaced(frequencies):
-                frequency_step = f'{np.round((frequencies[1] - frequencies[0])*1e6)} kHz'
-            else:
-                frequency_step = 'non-linear'
-
-            comment = (
-                f"VNA power: {data.vna_meta['power']} dBm\n"
-                f"VNA vbw: {data.vna_meta['VBW']} Hz\n"
-                f"VNA average: {data.vna_meta['average']}\n"
-                f"Current sweep direction: {current_sweep_dir}\n"
-                f"Current range: {currents[0]} to {currents[-1]} mA\n"
-                f"Current step: {np.round(currents[1] - currents[0],4)} mA\n"
-                f"Frequency range: {frequencies.min()} to {frequencies.max()} GHz\n"
-                f"Frequency step: {frequency_step}\n"
-                f"Max |S|: {S_to_dBm(data.S).max():.2f} dB\n"
-                f"Min |S|: {S_to_dBm(data.S).min():.2f} dB"   
-            )
-            return comment
+    
     
     @staticmethod
-    def add_text_box(ax: Axes, text: str, position: Tuple[float, float]) -> None:
+    def add_text_box(ax: Axes, text: str, position: Tuple[float, float], fontsize: int = 10) -> None:
         
         # Set the position to the right of the colorbar
         text_x = position[0]
         text_y = position[1]
         
         # Add a text box with the given text to the specified position on the plot
-        ax.text(text_x, text_y, text, transform=ax.figure.transFigure, fontsize=10,
+        ax.text(text_x, text_y, text, transform=ax.figure.transFigure, fontsize=fontsize,
                 verticalalignment='top', bbox=dict(boxstyle='round,pad=0.5', edgecolor='black', facecolor='white'))
 
 
@@ -540,14 +679,15 @@ class Plotter:
             plt.tight_layout()
             display(self.pcolor_fig)
             
-    def plot_trace_mag(self, f: Union[np.ndarray, list], z: Union[np.ndarray, list], S_parameter: str ='S12', freq_unit: str ='GHz', mag_scale: str ='dB') -> Tuple[Figure, Tuple[Axes, Axes]]:
+    @staticmethod
+    def plot_trace_mag(f: Union[np.ndarray, list], z: Union[np.ndarray, list], ax: Optional[Axes] = None, title: str ='VNA trace', S_parameter: str ='S21', freq_unit: str ='GHz', mag_scale: str ='dB') -> Tuple[Figure, Tuple[Axes, Axes]]:
         """
         Plots the magnitude and phase of one or many complex-valued functions (e.g., an S-parameter) against frequency.
 
         Parameters:
         - f (array-like): Array of frequencies at which the measurements are taken.
         - z (array-like): Complex-valued measurements corresponding to frequencies in `f`.
-        - S_parameter (str, optional): Label of the S-parameter (default 'S12').
+        - S_parameter (str, optional): Label of the S-parameter (default 'S21').
         - title (str, optional): Title of the plot.
         - freq_unit (str, optional): Unit for the frequency axis ('GHz', 'MHz', etc.).
         - mag_scale (str, optional): Scale for magnitude ('dB' for decibels, 'linear' for linear scale).
@@ -567,7 +707,11 @@ class Plotter:
         z = np.array(z).transpose()
 
         # Create subplots
-        fig, ax = plt.subplots()
+        if ax is None:
+            fig, ax = plt.subplots()
+        else:
+            fig = ax.figure
+
 
         # Plot magnitude
         color = 'tab:blue'
@@ -580,9 +724,43 @@ class Plotter:
         ax.set_xlabel(f'Frequency ({freq_unit})')
         ax.tick_params(axis='y', labelcolor=color)
         
-        return fig, ax
+        ax.set_title(title)
 
-    def plot_trace_mag_phase(self, f: Union[np.ndarray, list], z: Union[np.ndarray, list], S_parameter: str ='S12', freq_unit: str ='GHz', mag_scale: str ='dB') -> Tuple[Figure, Tuple[Axes, Axes]]:
+        return fig, ax
+    
+    @staticmethod
+    def plot_trace_phase(f: Union[np.ndarray, list], z: Union[np.ndarray, list], ax: Optional[Axes] = None, title: str ='VNA trace', S_parameter: str ='S21', freq_unit: str ='GHz') -> Tuple[Figure, Tuple[Axes, Axes]]:
+        
+        # Validate inputs
+        if not (isinstance(f, (list, np.ndarray)) and isinstance(z, (list, np.ndarray))):
+            raise ValueError("Frequency and measurement inputs must be array-like.")
+
+        if len(f) != len(z):
+            raise ValueError("Frequency and measurement arrays must be of the same length.")
+        
+        # Convert inputs to numpy arrays if they are lists and transpose to be able to plot multiple traces
+        f = np.array(f).transpose()
+        z = np.array(z).transpose()
+
+        # Create subplots
+        if ax is None:
+            fig, ax = plt.subplots()
+        else:
+            fig = ax.figure
+        
+        # Plot phase
+        color = 'tab:red'
+        ax.plot(f / 1e9, np.angle(z, deg=True), color=color)
+        ax.set_ylabel(f'arg({S_parameter}) in degrees', color=color)
+        ax.tick_params(axis='y', labelcolor=color)
+
+        ax.set_title(title)
+
+        
+        return fig, ax
+    
+
+    def plot_trace_mag_phase(self, f: Union[np.ndarray, list], z: Union[np.ndarray, list], title: str ='VNA trace', S_parameter: str ='S12', freq_unit: str ='GHz', mag_scale: str ='dB') -> Tuple[Figure, Tuple[Axes, Axes]]:
         """
         Plots the magnitude and phase of one or many complex-valued functions (e.g., an S-parameter) against frequency.
 
@@ -628,6 +806,8 @@ class Plotter:
         ax2.plot(f / 1e9, np.angle(z, deg=True), color=color)
         ax2.set_ylabel(f'arg({S_parameter}) in degrees', color=color)
         ax2.tick_params(axis='y', labelcolor=color)
+
+        ax1.set_title(title)
 
         
         return fig, (ax1, ax2)
@@ -685,7 +865,8 @@ class Plotter:
     
 
     # 3d
-    def generate_flat_mesh(self, x: np.ndarray, y: np.ndarray, z: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    @staticmethod
+    def generate_flat_mesh(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
 
         if not (np.shape(x) == np.shape(y) == np.shape(z)):
             raise ValueError("Arrays x, y and z must be of the same shape, i.e. datapoint z[i][j] at coordinates (x[i][j], y[i][j]).")
@@ -720,8 +901,8 @@ class Plotter:
 
         return x_final, y_final, z_final
 
-
-    def plot_flat_pcolormesh(self, x: np.ndarray, y: np.ndarray, z: np.ndarray, vmax=None, vmin=None, cmap='viridis') -> Tuple[Figure, Axes, Colorbar]:
+    @staticmethod
+    def plot_flat_pcolormesh(x: np.ndarray, y: np.ndarray, z: np.ndarray, vmax=None, vmin=None, cmap='viridis', alpha = 1, fig: Optional[Figure] = None, ax: Optional[Axes] = None) -> Tuple[Figure, Axes, Colorbar]:
         """
         Plots a flat pcolormesh for data points on a grid that is potentially irregular in y.
         """
@@ -730,15 +911,16 @@ class Plotter:
             raise ValueError("Arrays x, y and z must be of the same shape, i.e. datapoint z[i][j] at coordinates (x[i][j], y[i][j]).")
             
         # generate new mesh, to account for irregularity in y
-        x_final, y_final, z_final = self.generate_flat_mesh(x,y,z)
+        x_final, y_final, z_final = Plotter.generate_flat_mesh(x,y,z)
 
 
         # Create figure and axes
-        fig, ax = plt.subplots()
+        if fig is None and ax is None:
+            fig, ax = plt.subplots()
 
     
         # Create the pcolormesh plot
-        mesh = ax.pcolormesh(x_final, y_final, z_final, cmap=cmap, vmax=vmax, vmin=vmin)
+        mesh = ax.pcolormesh(x_final, y_final, z_final, cmap=cmap, vmax=vmax, vmin=vmin, alpha=alpha)
 
     
         # Create a colorbar for the plot

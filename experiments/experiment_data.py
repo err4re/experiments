@@ -47,6 +47,9 @@ class FluxMapData(ExperimentData):
     #VNA meta data, e.g. bandwidth, power, averaging
     vna_meta: Optional[dict] = None
 
+    #Anapico meta data, e.g. pump power and pump frequency for TWPA
+    ana_meta: Optional[dict] = None
+
     #corresponding fluxes
     fluxes: Optional[np.ndarray[np.float64]] = None
 
@@ -83,5 +86,8 @@ class TwoToneData(ExperimentData):
     S_flux_map_fine: Optional[np.ndarray] = None
 
     vna_meta:  Optional[dict] = None
+
+    #Anapico meta data, e.g. pump power and pump frequency for TWPA
+    ana_meta: Optional[dict] = None
 
     fluxes: Optional[np.ndarray] = None

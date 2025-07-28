@@ -15,7 +15,7 @@ from time import sleep
 
 import matplotlib.pyplot as plt
 
-from qutip import Qobj  
+# from qutip import Qobj
 
 from experiments.utils import S_to_dBm
 
@@ -61,6 +61,14 @@ class TwoToneExperiment(Experiment):
 
         if self.config.ana_f2.power_sweep_length is not None:
             sweep_length = self.config.ana_f2.power_sweep_length
+            if isinstance(self.config.yoko, YokoVoltSweepConfig):
+                voltages = np.full(sweep_length, np.nan, dtype=np.float64)
+                currents = None
+            elif isinstance(self.config.yoko, YokoCurrSweepConfig):
+                currents = np.full(sweep_length, np.nan, dtype=np.float64)
+                voltages = None
+        elif self.config.vna_f1.power_sweep_length is not None:
+            sweep_length = self.config.vna_f1.power_sweep_length
             if isinstance(self.config.yoko, YokoVoltSweepConfig):
                 voltages = np.full(sweep_length, np.nan, dtype=np.float64)
                 currents = None
@@ -526,36 +534,36 @@ class TwoToneExperiment(Experiment):
 
         return flux
     
-    @staticmethod
-    def hamiltonian_sym(Ec, Ej, phi_x, N, ng) -> Type[Qobj]:
-        """
-        Return the hamiltonian for a symmetric SQUID as a Qobj instance.
-        """
-        mc = np.diag(Ec * (np.arange(-N, N + 1) - ng) ** 2)
-        mj =  0.5 * Ej * np.cos(phi_x/2) * (np.diag(-np.ones(2 * N), 1) + np.diag(-np.ones(2 * N), -1))
+    # @staticmethod
+    # def hamiltonian_sym(Ec, Ej, phi_x, N, ng) -> Type[Qobj]:
+    #     """
+    #     Return the hamiltonian for a symmetric SQUID as a Qobj instance.
+    #     """
+    #     mc = np.diag(Ec * (np.arange(-N, N + 1) - ng) ** 2)
+    #     mj =  0.5 * Ej * np.cos(phi_x/2) * (np.diag(-np.ones(2 * N), 1) + np.diag(-np.ones(2 * N), -1))
 
-        m = mc + mj
+    #     m = mc + mj
 
-        return Qobj(m)
+    #     return Qobj(m)
 
-    @staticmethod
-    def hamiltonian_asym(Ec, Ej, d, phi_x, N, ng) -> Type[Qobj]:
-        """
-        Return the hamiltonian for an asymmetric SQUID as a Qobj instance.
-        """
-        mc = np.diag(Ec * (np.arange(-N, N + 1) - ng) ** 2)
-        mj =  0.5 * Ej * np.cos(phi_x/2) * (np.diag(-np.ones(2 * N), 1) + np.diag(-np.ones(2 * N), -1)) + 0.5 * d * Ej * np.sin(phi_x/2) * (-1j)* (np.diag(-np.ones(2 * N), 1) - np.diag(-np.ones(2 * N), -1))
+    # @staticmethod
+    # def hamiltonian_asym(Ec, Ej, d, phi_x, N, ng) -> Type[Qobj]:
+    #     """
+    #     Return the hamiltonian for an asymmetric SQUID as a Qobj instance.
+    #     """
+    #     mc = np.diag(Ec * (np.arange(-N, N + 1) - ng) ** 2)
+    #     mj =  0.5 * Ej * np.cos(phi_x/2) * (np.diag(-np.ones(2 * N), 1) + np.diag(-np.ones(2 * N), -1)) + 0.5 * d * Ej * np.sin(phi_x/2) * (-1j)* (np.diag(-np.ones(2 * N), 1) - np.diag(-np.ones(2 * N), -1))
 
-        m = mc + mj
+    #     m = mc + mj
 
-        return Qobj(m)
+    #     return Qobj(m)
 
-    def flux_to_f2(self, Ec, Ej, flux, N=10):
+    # def flux_to_f2(self, Ec, Ej, flux, N=10):
 
-        energies = self.hamiltonian_sym(Ec, Ej, flux, N, 0).eigenenergies()
-        energy_diff = energies[1] - energies[0]
+    #     energies = self.hamiltonian_sym(Ec, Ej, flux, N, 0).eigenenergies()
+    #     energy_diff = energies[1] - energies[0]
 
-        return energy_diff
+    #     return energy_diff
     
     def f1_to_f2_tracking(self, f1):
 
@@ -1325,7 +1333,7 @@ class TwoToneExperiment(Experiment):
 
                 self.ana.output_off()
 
-                self.plotter.update_twotone_imshow(self.data.f1_center_frequencies/1e9,
+                self.plotter.update_twotone_imshow_voltage(self.data.f1_center_frequencies/1e9,
                                                 self.data.f2_center_frequencies/1e9,
                                                 (self.data.f2_frequencies[i][-1] - self.data.f2_frequencies[i][0])/1e9,
                                                 self.config.yoko.voltages/1e-3, self.data.signal, scale)
@@ -1719,10 +1727,144 @@ class TwoToneExperiment(Experiment):
 
                 self.ana.output_off()
 
-                self.plotter.update_twotone_imshow_voltage(self.data.f1_center_frequencies/1e9,
+                self.plotter.update_twotone_imshow_power(self.data.f1_center_frequencies/1e9,
                                                 self.data.f2_center_frequencies/1e9,
                                                 (self.data.f2_frequencies[a][-1] - self.data.f2_frequencies[a][0])/1e9,
                                                 self.config.ana_f2.powers, self.data.signal)
+                
+                
+
+            #save backup?
+
+
+        #save data?
+        
+        self.vna.write('SYSTem:DISPlay:UPDate ON')
+
+
+    @Experiment.experiment_method
+    def two_tone_cw_f1_power_sweep_voltage(self, vna_window: bool = True, average: int =1, masked_frequencies: Optional[list] = None):
+              
+         # check yoko current, ramp slowly to starting value
+        if self.config.yoko.voltage_range >= self.yoko.voltage():
+            self.yoko.set_source_voltage_sweep(self.config.yoko)
+        else:
+            self.yoko.source_voltage()
+
+        #turn current source on
+        self.yoko.output(True)
+
+        # ramp to initial current value
+        self.yoko.ramp_voltage(self.config.yoko.voltages[0], blocking=True)
+        self.yoko.set_source_voltage_sweep(self.config.yoko)
+
+        self.acquired_sweeps = []
+
+        if not vna_window:
+            self.vna.write('SYSTem:DISPlay:UPDate OFF')
+
+        self.vna.visa_instr.timeout = 500e3
+
+        
+
+        #iterate over currents corresponding to different fluxes generated by the coil
+        for i, voltage in enumerate(self.config.yoko.voltages):
+            #set current
+            self.yoko.voltage(voltage)
+            self.data.voltages[i] = voltage
+            sleep(self.config.yoko.wait)
+
+            start = time.time()
+
+            if masked_frequencies is not None:
+                cw_frequency, f_calib, z_calib = self.calibrate_f1_z_masked(masked_frequencies)
+            else:
+                cw_frequency, f_calib, z_calib = self.calibrate_f1_z()
+
+            
+            self.config.vna_f1.center_frequency = cw_frequency
+            self.data.f1_center_frequencies[i] = self.config.vna_f1.center_frequency
+            
+
+            print(time.time() - start)
+            print("calibrated")
+
+            #self.data.f1_center_frequencies[i] = self.config.vna_f1_calib.center_frequency
+
+        
+            
+            for a, f1_power in enumerate(self.config.vna_f1.powers):
+
+                
+
+                self.vna.set_ext_trigger_out(self.config.vna_trigger)
+
+                self.ana.set_ext_trig(self.config.ana_trigger)
+                start_ana = time.time()
+                self.ana.set_freq_sweep(self.config.ana_f2)
+                print(time.time() - start_ana)
+                print("Anapico freq sweep configured")
+                self.data.f2_center_frequencies[i] = self.config.ana_f2.center_frequency
+                self.data.f2_powers[a] = self.config.ana_f2.power
+                self.ana.output_on()
+
+
+                self.data.f2_frequencies[a] = self.config.ana_f2.frequencies
+
+                self.config.vna_f1.power = f1_power
+                self.vna.set_sweep(self.config.vna_f1)
+                self.vna.sweep_count = self.config.vna_f1.num_averages 
+
+                print(time.time() - start)
+                print("configured")
+
+                start = time.time()
+
+                f, z = self.vna.sweep()
+                print(f'f shape: {np.shape(f)}')
+                print(f'z shape: {np.shape(z)}')
+
+                
+
+                print(time.time() - start)
+
+                if not vna_window:
+                    self.vna.write('SYSTem:DISPlay:UPDate ONCE')
+
+
+                self.acquired_sweeps.append(len(z))
+
+                try:
+                    self.data.S[i] = z
+                except:
+                    self.data.S[i] = np.nan
+
+
+
+                if masked_frequencies is not None:
+                    mask = self.mask_devices(f_calib, masked_frequencies)
+                    signal = np.abs(z - z_calib[self.find_highest_average_triplet(-20*np.log(np.abs(z_calib[~mask])))])
+                    #signal = np.angle(z) 
+                else:
+                    signal = np.abs(z - z_calib[self.find_highest_average_triplet(-20*np.log(np.abs(z_calib)))])
+                    #signal = np.angle(z)
+                
+                #signal = signal - np.mean(signal)
+                self.data.signal[a] = signal
+                
+
+                #self.f2_tracking(i)
+
+                vna_meta = self.vna.get_meta()
+                self.data.vna_meta = vna_meta
+
+                self.ana.output_off()
+                
+
+                self.plotter.update_twotone_imshow_voltage(self.data.f1_center_frequencies/1e9,
+                                                self.data.f2_center_frequencies/1e9,
+                                                (self.data.f2_frequencies[a][-1] - self.data.f2_frequencies[a][0])/1e9,
+                                                self.config.vna_f1.powers, self.data.signal)
                 
                 
 
@@ -1912,12 +2054,13 @@ class TwoToneExperiment(Experiment):
         self.ana.output_off()
 
 
-
+    def plot_results(self):
+        self.plotter.plot_two_tone(self.data, title=f'{self.file_name}')
 
 
 
     @Experiment.experiment_method
-    def two_tone_cw_voltage(self, vna_window: bool = True, masked_frequencies: Optional[list] = None):
+    def two_tone_cw_voltage(self, vna_window: bool = True, live_plotting: bool=True, masked_frequencies: Optional[list] = None):
 
         # check yoko current, ramp slowly to starting value
         if self.config.yoko.voltage_range >= self.yoko.voltage():
@@ -1942,8 +2085,9 @@ class TwoToneExperiment(Experiment):
 
         self.vna.visa_instr.timeout = 500e3
 
+        #Anapico meta data, i.e. TWPA pump power and frequency
+        self.data.ana_meta = self.ana.metadata
 
-        
 
         #iterate over currents corresponding to different fluxes generated by the coil
         for i, voltage in enumerate(self.config.yoko.voltages):
@@ -2039,11 +2183,12 @@ class TwoToneExperiment(Experiment):
 
             self.ana.output_off()
 
-            self.plotter.update_twotone_imshow_voltage(self.data.f1_center_frequencies/1e9,
-                                               self.data.f2_center_frequencies/1e9,
-                                               (self.data.f2_frequencies[i][-1] - self.data.f2_frequencies[i][0])/1e9,
-                                               self.config.yoko.voltages/1e-3, self.data.signal)
-            
+            if live_plotting:
+                self.plotter.update_twotone_imshow_voltage(self.data.f1_center_frequencies/1e9,
+                                                self.data.f2_center_frequencies/1e9,
+                                                (self.data.f2_frequencies[i][-1] - self.data.f2_frequencies[i][0])/1e9,
+                                                self.config.yoko.voltages/1e-3, self.data.signal)
+                
             
 
             #save backup?
