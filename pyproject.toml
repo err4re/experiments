@@ -25,12 +25,17 @@ dependencies = [
     "qutip",
     "scikit-learn",
     "lmfit",
-    # resonator is on PyPI (currently at 1.1.0), but the only version this
-    # codebase has actually been run against is 0.8.0 (see
-    # requirements-lock.txt) -- capped here until someone verifies the
-    # analysis.py fitting calls (shunt.LinearShuntFitter, see.triptych,
-    # background.MagnitudeSlopeOffsetPhaseDelay) still work on 1.x.
-    "resonator<1.0",
+    # PyPI's "resonator" only ever published 1.1.0 -- there is no 0.x
+    # release there at all, so "resonator<1.0" (a previous version of this
+    # file) is literally unsatisfiable and breaks installation outright.
+    # The only version this codebase has actually been run against is the
+    # git commit below (reports its own __version__ as 0.8.0, pre-dating
+    # the PyPI release), so pin to that exact commit rather than guess
+    # whether 1.1.0's API still matches (analysis.py's
+    # shunt.LinearShuntFitter, see.triptych,
+    # background.MagnitudeSlopeOffsetPhaseDelay calls are untested against
+    # it). Same commit as requirements-lock.txt.
+    "resonator @ git+https://github.com/danielflanigan/resonator.git@97f4183ca956d40ca3be606dc4b7fc202360ac58",
     "PyQt6",
     "ipython",
     "tqdm",
