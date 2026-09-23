@@ -1,0 +1,25 @@
+# Exact versions known to work, captured from the "alex" conda environment
+# on this machine (2026-09-23). This is a reproducibility snapshot, not the
+# package's declared dependencies -- those live in setup.py's
+# install_requires and stay unpinned/loose on purpose (see
+# experiments_improvements.md item #7 / README.md).
+#
+# To reproduce this environment:
+#   pip install -r requirements-lock.txt
+#   pip install -e .
+
+numpy==1.26.4
+scipy==1.15.3
+matplotlib==3.10.1
+h5py==3.11.0
+qutip==5.2.0
+scikit-learn==1.6.1
+lmfit==1.3.4
+PyQt6==6.7.1
+ipython==8.25.0
+tqdm==4.69.1
+
+# Private packages, not on PyPI (or not at this version) -- pinned to the
+# exact commit actually installed here rather than a version number.
+-e git+https://github.com/danielflanigan/resonator.git@97f4183ca956d40ca3be606dc4b7fc202360ac58#egg=resonator
+-e git+https://github.com/err4re/instruments.git@bd975d67b8130c8735f701444ea9fa99e724bfb7#egg=instruments

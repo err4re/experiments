@@ -46,8 +46,8 @@ class FluxMapExperiment(Experiment):
     #     super().end_experiment()
 
 
-    def plot_results(self):
-        self.plotter.plot_flux_map(self.data, title=f'Flux Map {self.file_name}')
+    def plot_results(self, comment: bool = True):
+        self.plotter.plot_flux_map(self.data, title=f'Flux Map {self.file_name}', comment=comment)
 
 
     def initialize_instruments(self):
@@ -172,8 +172,7 @@ class FluxMapExperiment(Experiment):
         #turn voltage source on
         self.yoko.output(True)
 
-        #setup sweep on VNA
-        self.vna.set_sweep(self.config.vna)
+        
 
         self.data.vna_meta = self.vna.meta
 
@@ -188,6 +187,9 @@ class FluxMapExperiment(Experiment):
             self.data.voltages[i] = voltage
             sleep(self.config.yoko.wait)
 
+            #setup sweep on VNA
+            self.vna.set_sweep(self.config.vna)
+
             #take VNA trace
             f,z = self.vna.sweep()
             self.data.f = f
@@ -197,7 +199,8 @@ class FluxMapExperiment(Experiment):
             #self.plotter.update_pcolormesh(self.data['currents'][i]/1e-3, self.data['f'][i]/1e9, np.abs(self.data['S'][i]))
             #self.plotter.update_imshow(self.data['currents'][i]/1e-3, self.data['f'][i]/1e9, np.abs(self.data['S'][i]))
             if live_plotting:
-                self.plotter.update_full_imshow(self.config.yoko.voltages/1e-3, self.data.f, S_to_dBm(self.data.S[:i+1]))
+                # self.plotter.update_full_imshow(self.config.yoko.voltages/1e-3, self.data.f, S_to_dBm(self.data.S[:i+1]))
+                self.plotter.update_full_imshow(self.config.yoko.voltages/1e-3, self.data.f, self.data.S[:i+1])
 
             # if not vna_window:
             #     self.vna.write('SYSTem:DISPlay:UPDate ONCE')

@@ -77,6 +77,14 @@ class TwoToneData(ExperimentData):
     voltages: np.ndarray[np.float64] = None
 
     f1_powers: Optional[np.ndarray] = None
+
+    #to save calibration traces taken for every flux point if needed
+    f1_calib_zs: Optional[np.ndarray] = None
+    f1_calib_fs: Optional[np.ndarray] = None
+
+    #for cw single shot, save traces with f2 off to subtract background
+    cw_background_zs: Optional[np.ndarray] = None
+    cw_background_fs: Optional[np.ndarray] = None
     
     signal: Optional[np.ndarray] = None
 

@@ -32,6 +32,8 @@ class TwoToneConfig(ExperimentConfig):
     vna_trigger: ZnbExtTrigOutConfig
     ana_f2: AnaFreqSweepConfig
     ana_trigger: AnaExtTrigInConfig
+
+    vna_cw_background: Optional[ZnbCWConfig] = None
     tracking_parameters: Optional[dict] = None 
     f2_to_span: Optional[callable] = None
     f2_to_power: Optional[callable] = None

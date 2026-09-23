@@ -193,11 +193,16 @@ class Experiment:
         raise NotImplementedError
     
     @safe_initializer
-    def initialize_vna(self, adress = "TCPIP0::192.168.0.43::hislip::INSTR"):
+    def initialize_vna(self, adress = "TCPIP0::192.168.0.43::5025::SOCKET"):
+        # def initialize_vna(self, adress = "TCPIP0::192.168.0.43::hislip0::INSTR"):
+        # def initialize_vna(self, adress = "TCPIP0::192.168.0.43::hislip::INSTR"):
+        
         self.vna = znb.Znb(adress) 
         
     @safe_initializer    
-    def initialize_ana(self, adress = "TCPIP0::192.168.0.45"):
+    #def initialize_ana(self, adress = "USB0::0x03EB::0xAFFF::3E5-0B2L2030E-0537::0::INSTR"):
+    # def initialize_ana(self, adress = "TCPIP0::192.168.0.45::inst0::INSTR"):
+    def initialize_ana(self, adress = "TCPIP0::192.168.0.45::18::SOCKET"):
         self.ana = anapico.AnaPico(adress)
         
     @safe_initializer    
@@ -351,7 +356,12 @@ class Experiment:
                     else:
                         data_dict[field.name] = attr_value
 
-            return dataclass_type(**data_dict)
+            data_instance = dataclass_type(**data_dict)
+            # Convenience only: where this instance was loaded from, not a
+            # declared field, so it's never itself written back to the file
+            # (that would let the recorded path go stale after a rename/move).
+            data_instance.source_file_path = file_path
+            return data_instance
 
     @staticmethod
     def _load_dict_from_group(group: h5py.Group) -> dict:
@@ -368,7 +378,44 @@ class Experiment:
                 dictionary[key] = attr
         return dictionary
 
-    
+    @staticmethod
+    def update_hdf5_field(file_path: str, field_name: str, value: Any, overwrite: Optional[bool] = None) -> None:
+        """
+        Add or update a single field in an already-saved experiment HDF5 file,
+        without touching anything else stored in it. Meant for adding a
+        derived quantity (e.g. `fluxes` from a voltage/current-to-flux
+        conversion) after the original measurement has already been saved.
+
+        overwrite:
+            None (default): if the field already exists, ask for interactive
+                confirmation (input()) before overwriting.
+            True: overwrite an existing field without asking.
+            False: never overwrite; raise if the field already exists.
+        """
+        with h5py.File(file_path, 'a') as h5file:
+            exists = field_name in h5file or field_name in h5file.attrs
+
+            if exists:
+                if overwrite is False:
+                    raise ValueError(f"'{field_name}' already exists in {file_path} and overwrite=False.")
+                if overwrite is None:
+                    answer = input(f"'{field_name}' already exists in {file_path}. Overwrite? [y/N] ")
+                    if answer.strip().lower() != 'y':
+                        print("Cancelled: nothing was changed.")
+                        return
+                if field_name in h5file:
+                    del h5file[field_name]
+                if field_name in h5file.attrs:
+                    del h5file.attrs[field_name]
+
+            if isinstance(value, np.ndarray):
+                h5file.create_dataset(field_name, data=value, compression='lzf')
+            else:
+                h5file.attrs[field_name] = value
+
+        print(f"Saved '{field_name}' to {file_path}")
+
+
 
 
     def save_data_npz(self, file_name=None, compress=True):

@@ -89,6 +89,100 @@ class Plotter:
             display(self.twotone_fig)
 
 
+    def update_twotone_imshow_single_shot_voltage(self, f1_center_frequencies, f2_center_frequencies, f2_span, cw_background_zs, z_rot, voltages, signal, scale=None):
+        if self.twotone_fig is None:
+
+            self.twotone_fig, self.twotone_axes = plt.subplots(1,3)
+            self.twotone_fig.set_figwidth(20)
+
+            self.twotone_axes[0].scatter(np.real(cw_background_zs), np.imag(cw_background_zs), s=1, alpha=1)
+            self.twotone_axes[0].scatter(np.real(z_rot), np.imag(z_rot), s=1, alpha=1, color='red')
+            self.twotone_axes[2].plot(voltages, f1_center_frequencies)
+           
+
+            self.twotone_im = self.twotone_axes[1].imshow(np.flip(signal.T, axis=0), cmap='viridis', aspect='auto',
+                                                          extent=[voltages[0], voltages[-1], f2_center_frequencies[0] - f2_span/2, f2_center_frequencies[0] + f2_span/2],
+                                                          interpolation='none')
+            self.twotone_axes[1].set_xlabel('voltage (mV)')
+            self.twotone_axes[1].set_ylabel('f2 (GHz)')
+
+            #self.twotone_im.set_clim(vmin=scale, vmax=-scale)
+
+            clear_output(wait=True)
+            #plt.tight_layout()
+            display(self.twotone_fig)
+
+        else:
+
+            self.twotone_axes[0].clear()
+            self.twotone_axes[2].clear()
+            self.twotone_axes[0].scatter(np.real(cw_background_zs), np.imag(cw_background_zs), s=1, alpha=1)
+            self.twotone_axes[0].scatter(np.real(z_rot), np.imag(z_rot), s=1, alpha=1, color='red')
+            self.twotone_axes[0].set_xlabel('Re')
+            self.twotone_axes[0].set_ylabel('Im')
+            self.twotone_axes[2].plot(voltages, f1_center_frequencies)
+            self.twotone_axes[2].set_xlabel('voltage (mV)')
+            self.twotone_axes[2].set_ylabel('f1 center (GHz)')
+
+            self.twotone_im.set_data(np.flip(signal.T, axis=0))
+            self.twotone_im.set_clim(vmin=np.nanmin(signal), vmax=np.nanmax(signal))
+
+            #self.twotone_axes[1].relim()
+            #self.twotone_axes[1].autoscale_view()
+
+            clear_output(wait=True)
+            #plt.tight_layout()
+            display(self.twotone_fig)
+
+
+    def update_twotone_imshow_movie_voltage(self, f1_center_frequencies, f2_center_frequencies, f2_span, voltages, signal, scale=None):
+        if self.twotone_fig is None:
+
+            self.twotone_fig, self.twotone_axes = plt.subplots(1,3)
+            self.twotone_fig.set_figwidth(20)
+
+            indices = np.arange(len(voltages))
+
+            self.twotone_axes[0].plot(indices, f2_center_frequencies)
+            self.twotone_axes[2].plot(indices, f1_center_frequencies)
+           
+
+            self.twotone_im = self.twotone_axes[1].imshow(np.flip(signal.T, axis=0), cmap='viridis', aspect='auto',
+                                                          extent=[indices[0], indices[-1], f2_center_frequencies[0] - f2_span/2, f2_center_frequencies[0] + f2_span/2],
+                                                          interpolation='none')
+            self.twotone_axes[1].set_xlabel('index')
+            self.twotone_axes[1].set_ylabel('f2 (GHz)')
+
+            #self.twotone_im.set_clim(vmin=scale, vmax=-scale)
+
+            clear_output(wait=True)
+            #plt.tight_layout()
+            display(self.twotone_fig)
+
+        else:
+
+            indices = np.arange(len(voltages))
+
+            self.twotone_axes[0].clear()
+            self.twotone_axes[2].clear()
+            self.twotone_axes[0].plot(indices, f2_center_frequencies)
+            self.twotone_axes[0].set_xlabel('index')
+            self.twotone_axes[0].set_ylabel('f2 center (GHz)')
+            self.twotone_axes[2].plot(indices, f1_center_frequencies)
+            self.twotone_axes[2].set_xlabel('index')
+            self.twotone_axes[2].set_ylabel('f1 center (GHz)')
+
+            self.twotone_im.set_data(np.flip(signal.T, axis=0))
+            self.twotone_im.set_clim(vmin=np.nanmin(signal), vmax=np.nanmax(signal))
+
+            #self.twotone_axes[1].relim()
+            #self.twotone_axes[1].autoscale_view()
+
+            clear_output(wait=True)
+            #plt.tight_layout()
+            display(self.twotone_fig)
+
+
     def update_twotone_imshow_power(self, f1_center_frequencies, f2_center_frequencies, f2_span, powers, signal, scale=None):
         if self.twotone_fig is None:
 
@@ -261,6 +355,8 @@ class Plotter:
                 voltage_sweep_dir = 'left'
 
             comment = (
+                f"Start time: {data.start_time}\n"
+                f"End time: {data.end_time}\n"
                 f"f1 (VNA) power: {data.vna_meta['power']} dBm\n"
                 f"VNA sweep type: {data.vna_meta['sweep_type']}\n"
                 f"VNA vbw: {data.vna_meta['VBW']} Hz\n"
@@ -391,11 +487,12 @@ class Plotter:
         return fig, ax
 
     @staticmethod
-    def plot_flux_map_voltage(data: FluxMapData, title: str = 'Flux Map' , cmap: str = 'viridis', comment: bool=True) -> Tuple[Figure, Axes]:
+    def plot_flux_map_voltage(data: FluxMapData, title: str = 'Flux Map' , cmap: str = 'viridis', comment: bool=True, fig: Optional[Figure]=None, ax: Optional[Axes]=None, **kwargs) -> Tuple[Figure, Axes]:
         # Create the figure and axes object
-        fig: Figure
-        ax: Axes
-        fig, ax = plt.subplots()
+        if fig is None and ax is None:
+            fig: Figure
+            ax: Axes
+            fig, ax = plt.subplots()
 
         voltages = data.voltages/1e-3 #in mA
         frequencies = data.f/1e9 #in GHz
@@ -409,12 +506,58 @@ class Plotter:
         if voltages[0] < voltages[-1]:
             cax = ax.imshow(np.flip(S_to_dBm(data.S).T, axis=0),
                         extent=[voltages.min(), voltages.max(), frequencies.min(), frequencies.max()], 
-                        cmap=cmap, aspect='auto', interpolation='none')
+                        cmap=cmap, aspect='auto', interpolation='none', alpha=kwargs.get('alpha', 1.0))
         #flip x axis 
         else:
             cax = ax.imshow(np.flip(np.flip(S_to_dBm(data.S).T, axis=0), axis=1),
                         extent=[voltages.min(), voltages.max(), frequencies.min(), frequencies.max()], 
-                        cmap=cmap, aspect='auto', interpolation='none')
+                        cmap=cmap, aspect='auto', interpolation='none', alpha=kwargs.get('alpha', 1.0))
+
+        # Add title
+        ax.set_title(title)
+
+        # Add colorbar with label
+        cbar = fig.colorbar(cax, ax=ax)
+        cbar.set_label(r'$|\text{S}_{21}|$ (dB)')
+
+        # Generate comments and add as a text box
+        comments = Plotter.generate_flux_map_comments_voltage(data)
+
+        cbar_box = cbar.ax.get_position()
+        ax_box = ax.get_position()
+        position = (cbar_box.x1 + 0.04, ax_box.y1)
+     
+        if comment:
+            Plotter.add_text_box(ax, comments, position)
+
+        return fig, ax
+
+    @staticmethod
+    def plot_flux_map_voltage_lin_S(data: FluxMapData, title: str = 'Flux Map' , cmap: str = 'viridis', comment: bool=True, fig: Optional[Figure]=None, ax: Optional[Axes]=None, **kwargs) -> Tuple[Figure, Axes]:
+        # Create the figure and axes object
+        if fig is None and ax is None:
+            fig: Figure
+            ax: Axes
+            fig, ax = plt.subplots()
+
+        voltages = data.voltages/1e-3 #in mA
+        frequencies = data.f/1e9 #in GHz
+
+        # Add labels
+        ax.set_xlabel('Voltage (mV)')
+        ax.set_ylabel('Frequency (GHz)')
+        
+
+        # Plot the data
+        if voltages[0] < voltages[-1]:
+            cax = ax.imshow(np.flip(np.abs(data.S).T, axis=0),
+                        extent=[voltages.min(), voltages.max(), frequencies.min(), frequencies.max()], 
+                        cmap=cmap, aspect='auto', interpolation='none', alpha=kwargs.get('alpha', 1.0))
+        #flip x axis 
+        else:
+            cax = ax.imshow(np.flip(np.flip(np.abs(data.S).T, axis=0), axis=1),
+                        extent=[voltages.min(), voltages.max(), frequencies.min(), frequencies.max()], 
+                        cmap=cmap, aspect='auto', interpolation='none', alpha=kwargs.get('alpha', 1.0))
 
         # Add title
         ax.set_title(title)
@@ -515,6 +658,8 @@ class Plotter:
                 frequency_step = 'non-linear'
 
             comment = (
+                f"Start time: {data.start_time}\n"
+                f"End time: {data.end_time}\n"
                 f"VNA power: {data.vna_meta['power']} dBm\n"
                 f"VNA vbw: {data.vna_meta['VBW']} Hz\n"
                 f"VNA average: {data.vna_meta['average']}\n"
@@ -549,6 +694,8 @@ class Plotter:
                 frequency_step = 'non-linear'
 
             comment = (
+                f"Start time: {data.start_time}\n"
+                f"End time: {data.end_time}\n"
                 f"VNA power: {data.vna_meta['power']} dBm\n"
                 f"VNA vbw: {data.vna_meta['VBW']} Hz\n"
                 f"VNA average: {data.vna_meta['average']}\n"
@@ -592,6 +739,8 @@ class Plotter:
             )
 
             comment = (
+                f"Start time: {data.start_time}\n"
+                f"End time: {data.end_time}\n"
                 f"Parked at current: {data.currents[0]/1e-3} mA\n"
                 f"VNA vbw: {data.vna_meta['VBW']} Hz\n"
                 f"VNA average: {data.vna_meta['average']}\n"
