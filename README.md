@@ -30,9 +30,6 @@ pip install -e git+https://github.com/err4re/instruments.git#egg=instruments
 
 # 2. install this package
 pip install -e .
-
-# 3. for the interactive notebook workflow
-pip install jupyterlab ipywidgets
 ```
 
 For a known-working set of exact versions (captured from a working install),
